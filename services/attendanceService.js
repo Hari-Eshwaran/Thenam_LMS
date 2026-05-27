@@ -1,5 +1,6 @@
 import { Attendance } from "../models/Attendance.js";
 import { Mapping } from "../models/Mapping.js";
+import { publishDomainEvent } from "../server/events/domainEvents.js";
 
 export async function getAttendanceByStudent(studentId) {
   return Attendance.find({ student_id: studentId }, { _id: 0 }).sort({ date: -1 }).lean();
@@ -16,11 +17,19 @@ export async function createOrUpdateAttendance({ student_id, class_id, date, sta
   const dayEnd = new Date(normalizedDate);
   dayEnd.setHours(23, 59, 59, 999);
 
-  return Attendance.findOneAndUpdate(
+  const record = await Attendance.findOneAndUpdate(
     { student_id, class_id, date: { $gte: dayStart, $lte: dayEnd } },
     { $set: { student_id, class_id, date: normalizedDate, status } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).lean();
+
+  publishDomainEvent("attendance.upserted", {
+    student_id,
+    class_id,
+    attendance: record,
+  });
+
+  return record;
 }
 
 export async function getStudentAttendanceSummary(studentId) {

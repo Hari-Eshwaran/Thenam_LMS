@@ -1,42 +1,45 @@
 import express from "express";
 import cors from "cors";
 
-import studentRoutes from "../routes/studentRoutes.js";
-import teacherRoutes from "../routes/teacherRoutes.js";
-import attendanceRoutes from "../routes/attendanceRoutes.js";
-import marksRoutes from "../routes/marksRoutes.js";
-import assignmentRoutes from "../routes/assignmentRoutes.js";
-import feesRoutes from "../routes/feesRoutes.js";
-import paymentRoutes from "../routes/paymentRoutes.js";
-import timetableRoutes from "../routes/timetableRoutes.js";
-import notificationRoutes from "../routes/notificationRoutes.js";
-import analyticsRoutes from "../routes/analyticsRoutes.js";
-import aiRoutes from "../routes/aiRoutes.js";
+import apiRouter from "../routes/index.js";
+import { AppError } from "../utils/appError.js";
+import { ok } from "../utils/apiResponse.js";
 import { requestLogger } from "../middlewares/requestLogger.js";
+import { requestSanitizer } from "../middlewares/requestSanitizer.js";
+import { rateLimit } from "../middlewares/rateLimit.js";
+import { securityHeaders } from "../middlewares/securityHeaders.js";
 import { errorHandler } from "../middlewares/errorHandler.js";
 
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  app.disable("x-powered-by");
+  app.use(
+    cors({
+      origin: true,
+      credentials: true,
+    }),
+  );
+  app.use(securityHeaders);
+  app.use(rateLimit({ windowMs: 60_000, max: 300 }));
   app.use(express.json({ limit: "1mb" }));
+  app.use(requestSanitizer);
   app.use(requestLogger);
 
   app.get("/api/health", (req, res) => {
-    res.status(200).json({ status: "ok" });
+    return ok(res, {
+      status: "ok",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
   });
 
-  app.use("/api/students", studentRoutes);
-  app.use("/api/teachers", teacherRoutes);
-  app.use("/api/attendance", attendanceRoutes);
-  app.use("/api/marks", marksRoutes);
-  app.use("/api/assignments", assignmentRoutes);
-  app.use("/api/fees", feesRoutes);
-  app.use("/api/payments", paymentRoutes);
-  app.use("/api/timetable", timetableRoutes);
-  app.use("/api/notifications", notificationRoutes);
-  app.use("/api/analytics", analyticsRoutes);
-  app.use("/api/ai", aiRoutes);
+  app.use("/api", apiRouter);
+  app.use("/api/v1", apiRouter);
+
+  app.use((req, res, next) => {
+    next(new AppError(`Route not found: ${req.method} ${req.originalUrl}`, 404));
+  });
 
   app.use(errorHandler);
 

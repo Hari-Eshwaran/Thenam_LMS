@@ -16,7 +16,13 @@ const timetableSchema = new mongoose.Schema(
     room: { type: String, required: true },
     status: { type: String, required: true, default: "scheduled" },
   },
-  { collection: "timetable" },
+  {
+    collection: "timetable",
+    timestamps: true,
+  },
 );
+
+timetableSchema.index({ class_id: 1, day: 1, period: 1 }, { unique: true });
+timetableSchema.index({ teacher_id: 1, day: 1, period: 1 });
 
 export const Timetable = mongoose.model("Timetable", timetableSchema);

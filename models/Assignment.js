@@ -7,7 +7,12 @@ const assignmentSchema = new mongoose.Schema(
     subject: { type: String, required: true },
     title: { type: String, required: true },
   },
-  { collection: "assignments" },
+  {
+    collection: "assignments",
+    timestamps: true,
+  },
 );
+
+assignmentSchema.index({ class_id: 1, subject: 1, createdAt: -1 });
 
 export const Assignment = mongoose.model("Assignment", assignmentSchema);

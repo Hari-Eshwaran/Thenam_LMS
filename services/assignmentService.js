@@ -1,6 +1,7 @@
 import { Assignment } from "../models/Assignment.js";
 import { Student } from "../models/Student.js";
 import { Submission } from "../models/Submission.js";
+import { publishDomainEvent } from "../server/events/domainEvents.js";
 
 function generateAssignmentId() {
   const stamp = Date.now().toString().slice(-6);
@@ -46,7 +47,14 @@ export async function createAssignment(payload) {
     title: payload.title,
   });
 
-  return assignment.toObject();
+  const createdAssignment = assignment.toObject();
+
+  publishDomainEvent("assignment.created", {
+    class_id: createdAssignment.class_id,
+    assignment: createdAssignment,
+  });
+
+  return createdAssignment;
 }
 
 export async function getAssignmentsForStudent(studentId) {

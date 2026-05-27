@@ -1,6 +1,7 @@
 import { created, ok } from "../utils/apiResponse.js";
 import { requireFields } from "../utils/validators.js";
 import { createTimetableEntry, listTimetable } from "../services/timetableService.js";
+import { publishDomainEvent } from "../server/events/domainEvents.js";
 
 export async function getTimetable(req, res) {
   const timetable = await listTimetable();
@@ -15,5 +16,9 @@ export async function createTimetable(req, res) {
   );
 
   const entry = await createTimetableEntry(req.body);
+  publishDomainEvent("timetable.created", {
+    class_id: entry.class_id,
+    timetable: entry,
+  });
   return created(res, entry);
 }

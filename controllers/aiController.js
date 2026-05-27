@@ -1,4 +1,6 @@
 import { Student } from "../models/Student.js";
+import { publishDomainEvent } from "../server/events/domainEvents.js";
+import { recordAiInteraction } from "../services/aiSessionService.js";
 import { retrieveContext } from "../services/retrievalService.js";
 import { askOpenRouter } from "../services/aiService.js";
 import { getServerEnv } from "../services/env.js";
@@ -23,10 +25,26 @@ export async function chat(req, res) {
   }
 
   const { contextText, sources } = retrieveContext({ subject, question, limit: 3 });
-  const answer = await askOpenRouter({
+  const { answer, usage } = await askOpenRouter({
     question,
     context: contextText,
     config,
+  });
+
+  publishDomainEvent("ai.chat.completed", {
+    student_id,
+    subject,
+    question,
+    student_class_id: student.class_id,
+  });
+
+  await recordAiInteraction({
+    studentId: student_id,
+    subject,
+    question,
+    answer,
+    sources,
+    tokensUsed: usage?.total_tokens || 0,
   });
 
   return ok(res, {

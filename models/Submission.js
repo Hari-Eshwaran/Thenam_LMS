@@ -6,7 +6,12 @@ const submissionSchema = new mongoose.Schema(
     student_id: { type: String, required: true, index: true },
     marks: { type: Number, required: true },
   },
-  { collection: "submissions" },
+  {
+    collection: "submissions",
+    timestamps: true,
+  },
 );
+
+submissionSchema.index({ assignment_id: 1, student_id: 1 }, { unique: true });
 
 export const Submission = mongoose.model("Submission", submissionSchema);

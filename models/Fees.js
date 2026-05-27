@@ -7,7 +7,12 @@ const feesSchema = new mongoose.Schema(
     paid: { type: Number, required: true },
     balance: { type: Number, required: true },
   },
-  { collection: "fees" },
+  {
+    collection: "fees",
+    timestamps: true,
+  },
 );
+
+feesSchema.index({ balance: 1, student_id: 1 });
 
 export const Fees = mongoose.model("Fees", feesSchema);

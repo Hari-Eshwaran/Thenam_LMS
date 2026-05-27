@@ -1,4 +1,5 @@
 import { Marks } from "../models/Marks.js";
+import { publishDomainEvent } from "../server/events/domainEvents.js";
 import { created, ok } from "../utils/apiResponse.js";
 import { positiveNumber, requireFields } from "../utils/validators.js";
 
@@ -19,6 +20,11 @@ export async function createMarks(req, res) {
     exam,
     marks: positiveNumber(marks, "marks"),
     max_marks: positiveNumber(max_marks, "max_marks"),
+  });
+
+  publishDomainEvent("marks.created", {
+    student_id,
+    marks: record.toObject(),
   });
 
   return created(res, { ...record.toObject(), _id: undefined });

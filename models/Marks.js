@@ -8,7 +8,13 @@ const marksSchema = new mongoose.Schema(
     marks: { type: Number, required: true },
     max_marks: { type: Number, required: true },
   },
-  { collection: "marks" },
+  {
+    collection: "marks",
+    timestamps: true,
+  },
 );
+
+marksSchema.index({ student_id: 1, subject: 1, exam: 1 }, { unique: true });
+marksSchema.index({ subject: 1, exam: 1 });
 
 export const Marks = mongoose.model("Marks", marksSchema);

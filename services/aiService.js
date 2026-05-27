@@ -1,4 +1,8 @@
-export async function askOpenRouter({ question, context, config }) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function askOpenRouter({ question, context, config, maxRetries = 2 }) {
   if (!config.openRouterApiKey) {
     throw new Error("OPENROUTER_API_KEY is not configured.");
   }
@@ -32,22 +36,40 @@ export async function askOpenRouter({ question, context, config }) {
     headers["HTTP-Referer"] = config.openRouterAppUrl;
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`OpenRouter error ${response.status}: ${detail}`);
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`OpenRouter error ${response.status}: ${detail}`);
+      }
+
+      const data = await response.json();
+      const answer = data?.choices?.[0]?.message?.content?.trim();
+      if (!answer) {
+        throw new Error("OpenRouter returned an empty response.");
+      }
+
+      return {
+        answer,
+        usage: data?.usage || null,
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries) {
+        await sleep(250 * (attempt + 1));
+        continue;
+      }
+      throw lastError;
+    }
   }
 
-  const data = await response.json();
-  const answer = data?.choices?.[0]?.message?.content?.trim();
-  if (!answer) {
-    throw new Error("OpenRouter returned an empty response.");
-  }
-
-  return answer;
+  throw lastError || new Error("OpenRouter request failed.");
 }

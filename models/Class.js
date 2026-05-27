@@ -6,7 +6,12 @@ const classSchema = new mongoose.Schema(
     grade: { type: Number, required: true },
     section: { type: String, required: true },
   },
-  { collection: "classes" },
+  {
+    collection: "classes",
+    timestamps: true,
+  },
 );
+
+classSchema.index({ grade: 1, section: 1 });
 
 export const Class = mongoose.model("Class", classSchema);

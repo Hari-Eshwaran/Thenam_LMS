@@ -1,5 +1,8 @@
+import mongoose from "mongoose";
+
 import { Fees } from "../models/Fees.js";
 import { Payment } from "../models/Payment.js";
+import { publishDomainEvent } from "../server/events/domainEvents.js";
 
 export async function listPayments() {
   return Payment.find({}, { _id: 0 }).sort({ date: -1 }).lean();
@@ -10,21 +13,49 @@ export async function getFeesByStudent(studentId) {
 }
 
 export async function createPayment({ student_id, amount, method, date, transaction_id }) {
-  const payment = await Payment.create({
-    student_id,
-    amount,
-    method,
-    date: new Date(date),
-    ...(transaction_id ? { transaction_id } : {}),
+  const session = await mongoose.startSession();
+  let payment;
+  let updatedFees = null;
+
+  await session.withTransaction(async () => {
+    const [createdPayment] = await Payment.create(
+      [
+        {
+          student_id,
+          amount,
+          method,
+          date: new Date(date),
+          ...(transaction_id ? { transaction_id } : {}),
+        },
+      ],
+      { session },
+    );
+
+    payment = createdPayment.toObject();
+
+    updatedFees = await Fees.findOneAndUpdate(
+      { student_id },
+      [
+        {
+          $set: {
+            paid: { $add: ["$paid", amount] },
+            balance: {
+              $max: [0, { $subtract: ["$total_fee", { $add: ["$paid", amount] }] }],
+            },
+          },
+        },
+      ],
+      { new: true, session },
+    ).lean();
   });
 
-  const fees = await Fees.findOne({ student_id });
-  if (fees) {
-    const newPaid = fees.paid + amount;
-    fees.paid = newPaid;
-    fees.balance = Math.max(0, fees.total_fee - newPaid);
-    await fees.save();
-  }
+  session.endSession();
 
-  return payment.toObject();
+  publishDomainEvent("payment.created", {
+    student_id,
+    payment,
+    fees: updatedFees,
+  });
+
+  return payment;
 }
